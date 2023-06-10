@@ -27,7 +27,7 @@ class _ClassAttendacnceEditState extends State<ClassAttendacnceEdit> {
   Worksheet? workSheet = null;
 
   // late String _spreadsheetId;
-  final String _workSheetTitle = '시';
+  final String _workSheetTitle = '시트1';
 
   @override
   void initState() {
@@ -127,6 +127,8 @@ class _ClassAttendacnceEditState extends State<ClassAttendacnceEdit> {
           index++;
         }
       } else {
+        if (data[outindex] != 'o')
+          data[outindex] = 'x';
         list.add(Card(
           child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -154,10 +156,11 @@ class _ClassAttendacnceEditState extends State<ClassAttendacnceEdit> {
                         setState(() {
                           data[outindex] = 'x';
                         });
-                      else
+                      else {
                         setState(() {
                           data[outindex] = 'o';
                         });
+                      }
                     },
                     child: data[outindex] == 'o'
                         ? Icon(

@@ -10,7 +10,7 @@ class SheetConfiguration {
   "client_id": "111800130765865744195",
   "auth_uri": "https://accounts.google.com/o/oauth2/auth",
   "token_uri": "https://oauth2.googleapis.com/token",
-  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/cert s",
   "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/attendancesheet%40welfare-attendance-388218.iam.gserviceaccount.com",
   "universe_domain": "googleapis.com"
 }
