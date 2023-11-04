@@ -1,12 +1,15 @@
+
 import 'package:flutter/material.dart';
 import 'package:welfare_attendance_project/institution/institution.dart';
 import 'package:welfare_attendance_project/teacher/teacher.dart';
 import 'institution/loginpage.dart' as ins;
 import 'teacher/loginpage.dart' as tea;
-import 'app_state.dart';
+import 'provider/app_state.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:animated_text_kit/animated_text_kit.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 class StartPage extends StatefulWidget {
   const StartPage({Key? key}) : super(key: key);
@@ -18,6 +21,7 @@ class StartPage extends StatefulWidget {
 class _StartPageState extends State<StartPage> {
   late VideoPlayerController _videoPlayerController;
 
+  DateTime? currentBackPressTime;
   @override
   void initState() {
     super.initState();
@@ -28,6 +32,22 @@ class _StartPageState extends State<StartPage> {
             _videoPlayerController.setLooping(true);
             setState(() {});
           });
+  }
+
+  Future<bool> onWillPop() {
+    DateTime now = DateTime.now();
+
+    if (currentBackPressTime == null ||
+        now.difference(currentBackPressTime!) > Duration(seconds: 2)) {
+      currentBackPressTime = now;
+      final msg = "'뒤로가기'버튼을 한 번 더 누르면 종료됩니다.";
+
+      Fluttertoast.showToast(
+          msg: msg, backgroundColor: Colors.black, textColor: Colors.white);
+      return Future.value(false);
+    }
+
+    return Future.value(true);
   }
 
   @override
@@ -74,25 +94,28 @@ class _StartPageState extends State<StartPage> {
     //   ),
     // );
 
-    return SafeArea(
-      child: Scaffold(
-        body: Stack(
-          children: <Widget>[
-            // 배경 영상
-            SizedBox.expand(
-              child: FittedBox(
-                fit: BoxFit.cover,
-                child: SizedBox(
-                  width: _videoPlayerController.value.size.width,
-                  height: _videoPlayerController.value.size.height,
-                  child: VideoPlayer(_videoPlayerController),
+    return WillPopScope(
+      onWillPop: onWillPop,
+      child: SafeArea(
+        child: Scaffold(
+          body: Stack(
+            children: <Widget>[
+              // 배경 영상
+              SizedBox.expand(
+                child: FittedBox(
+                  fit: BoxFit.cover,
+                  child: SizedBox(
+                    width: _videoPlayerController.value.size.width,
+                    height: _videoPlayerController.value.size.height,
+                    child: VideoPlayer(_videoPlayerController),
+                  ),
                 ),
               ),
-            ),
 
-            // 위젯 섹션
-            isPortrait ? const StartPagePortrait() : const StartPageLandscape(),
-          ],
+              // 위젯 섹션
+              isPortrait ? const StartPagePortrait() : const StartPageLandscape(),
+            ],
+          ),
         ),
       ),
     );

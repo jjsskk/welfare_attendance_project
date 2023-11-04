@@ -45,12 +45,21 @@ class _QRScannerState extends State<QRScanner> {
                     Text(
                         'Barcode Type: ${describeEnum(result!.format)}   Data: ${result!.code}')
                   else
-                    const Text('Scan a code'),
+                    const Text('QR 코드를 스캔해주세요'),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: <Widget>[
                       Container(
+                        margin: const EdgeInsets.all(8),
+                        child: ElevatedButton(
+                            onPressed: () async {
+                             Navigator.of(context).pop();
+                            },
+                            child: Text('뒤로가기')
+
+                            ),
+                      ),   Container(
                         margin: const EdgeInsets.all(8),
                         child: ElevatedButton(
                             onPressed: () async {
@@ -60,7 +69,7 @@ class _QRScannerState extends State<QRScanner> {
                             child: FutureBuilder(
                               future: controller?.getFlashStatus(),
                               builder: (context, snapshot) {
-                                return Text('Flash: ${snapshot.data}');
+                                return Text('플래시 ${snapshot.data}');
                               },
                             )),
                       ),
@@ -76,7 +85,8 @@ class _QRScannerState extends State<QRScanner> {
                               builder: (context, snapshot) {
                                 if (snapshot.data != null) {
                                   return Text(
-                                      'Camera facing ${describeEnum(snapshot.data!)}');
+                                      // 'Camera facing ${describeEnum(snapshot.data!)}');
+                                      '카메라 방향 전환');
                                 } else {
                                   return const Text('loading');
                                 }
@@ -95,7 +105,7 @@ class _QRScannerState extends State<QRScanner> {
                           onPressed: () async {
                             await controller?.pauseCamera();
                           },
-                          child: const Text('pause',
+                          child: const Text('카메라 off',
                               style: TextStyle(fontSize: 20)),
                         ),
                       ),
@@ -105,7 +115,7 @@ class _QRScannerState extends State<QRScanner> {
                           onPressed: () async {
                             await controller?.resumeCamera();
                           },
-                          child: const Text('resume',
+                          child: const Text('카메라 on',
                               style: TextStyle(fontSize: 20)),
                         ),
                       )

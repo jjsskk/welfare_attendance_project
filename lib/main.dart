@@ -3,7 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:welfare_attendance_project/startpage.dart';
 import 'firebase_options.dart';
 import 'package:provider/provider.dart';
-import 'app_state.dart';
+import 'provider/app_state.dart';
 import 'color_schemes.g.dart';
 import 'package:google_fonts/google_fonts.dart';
 

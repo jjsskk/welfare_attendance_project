@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+
 class RegisterClassGuide extends StatelessWidget {
   const RegisterClassGuide({Key? key}) : super(key: key);
 
@@ -30,6 +31,7 @@ class GuideSection extends StatefulWidget {
 
 class _GuideSectionState extends State<GuideSection> {
   int _index = 0;
+
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +85,7 @@ class _GuideSectionState extends State<GuideSection> {
                 ),
                 const SizedBox(height: 12.0),
                 Text(
-                  '1. 먼저 구글 드라이브에서 출석을 관리하고자 하는 강의의 엑셀 파일을 생성해 주세요\n(※ [새로 만들기] - [Google 스프레드시트] 클릭)',
+                  '1. 드라이브에서 출석을 관리하고자 하는 강의의 엑셀 파일을 생성해 주세요( 파일 내용은 메일로 받은 sample 엑셀 파일 양식을 꼭 따라주세요!)\n(※ [새로 만들기] - [Google 스프레드시트] 클릭)',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
@@ -101,31 +103,10 @@ class _GuideSectionState extends State<GuideSection> {
               ),
               const SizedBox(height: 12.0),
               Text(
-                '2. 생성한 엑셀 파일에서 아래의 이메일 주소를 편집자로 공유해 주세요\n(※ [공유] 클릭 - [사용자 및 그룹 추가] 칸에 아래의 이메일 주소 입력 - [전송] 클릭)',
+                '2. 생성한 엑셀 파일에서 메일로 받은 편집자 이메일을 공유해 주세요\n(※ [공유] 클릭 - [사용자 및 그룹 추가] 칸에 편집자 이메일 주소 입력 - [전송] 클릭)',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 12.0),
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'attendancesheet@welfare-attendance-388218.iam.gserviceaccount.com',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12.0),
-                  ElevatedButton(
-                    onPressed: () {
-                      Clipboard.setData(const ClipboardData(
-                          text:
-                              'attendancesheet@welfare-attendance-388218.iam.gserviceaccount.com'));
-                    },
-                    child: const Text('복사'),
-                  ),
-                ],
-              ),
             ],
           ),
         ),

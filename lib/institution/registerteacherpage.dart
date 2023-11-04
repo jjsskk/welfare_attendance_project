@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:welfare_attendance_project/app_state.dart';
-import 'package:welfare_attendance_project/institution/qrscanner.dart';
+import 'package:welfare_attendance_project/institution/qrscanner/qrscanner.dart';
+import 'package:welfare_attendance_project/provider/app_state.dart';
 import 'calender.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -16,7 +16,7 @@ class RegisterTeacherPage extends StatefulWidget {
 }
 
 class _RegisterTeacherPageState extends State<RegisterTeacherPage> {
-  Map<String, dynamic> _maplist = Map();
+  Map<String, dynamic> _maplist = {};
 
   final _formKey = GlobalKey<FormState>();
 
@@ -27,10 +27,19 @@ class _RegisterTeacherPageState extends State<RegisterTeacherPage> {
   final _phonenumberController = TextEditingController();
 
   String dropdownValue = '';
+
+  //for qrcode
   String qrcode = '';
+  bool isCheckMyself = false; // true -> save my qrcode
+  bool isCheckOther = false; // true ->save other qrcode
+
+  bool isFetchManagerData = false;
+
+  bool transactionSuccessful = false;
 
   void get_qrcode(String? code) {
     setState(() {
+      isCheckOther = true;
       this.qrcode = code!;
     });
   }
@@ -44,9 +53,11 @@ class _RegisterTeacherPageState extends State<RegisterTeacherPage> {
   @override
   Widget build(BuildContext context) {
     var appState = context.watch<ApplicationState>();
-    _maplist = appState.maplist!;
-    if (dropdownValue == '')
+    if (!isFetchManagerData) {
+      _maplist = appState.maplist!;
       dropdownValue = _maplist.keys.length == 0 ? '' : _maplist.keys.first;
+      isFetchManagerData = true;
+    }
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
@@ -115,38 +126,64 @@ class _RegisterTeacherPageState extends State<RegisterTeacherPage> {
                                       if (key == dropdownValue)
                                         sheetid = value[1];
                                     });
-                                    await FirebaseFirestore.instance
-                                        .collection('manager')
-                                        .doc(FirebaseAuth
-                                            .instance.currentUser!.uid)
-                                        .update(<String, dynamic>{
-                                      dropdownValue: [true, sheetid],
-                                    });
+                                    try {
+                                      await FirebaseFirestore.instance
+                                          .runTransaction((transaction) async {
+                                        DocumentReference managerRef =
+                                            FirebaseFirestore.instance
+                                                .collection('manager')
+                                                .doc(FirebaseAuth
+                                                    .instance.currentUser!.uid);
 
-                                    await FirebaseFirestore.instance
-                                        .collection('manager')
-                                        .doc(FirebaseAuth
-                                            .instance.currentUser!.uid)
-                                        .collection('teacher')
-                                        .doc(qrcode)
-                                        .set(<String, dynamic>{
-                                      'teacheruid': qrcode,
-                                      'name': _nameController.text.trim(),
-                                      'birthday':
-                                          _calenderController.text.trim(),
-                                      'phonenumber':
-                                          _phonenumberController.text.trim(),
-                                      dropdownValue: sheetid
-                                    });
+                                        DocumentReference teacherRef =
+                                            managerRef
+                                                .collection('teacher')
+                                                .doc(qrcode);
 
-                                    await FirebaseFirestore.instance
-                                        .collection('teachers')
-                                        .doc(qrcode)
-                                      ..set(<String, dynamic>{
-                                        'teacheruid': qrcode,
-                                        dropdownValue: sheetid
+                                        DocumentReference teachersRef =
+                                            FirebaseFirestore.instance
+                                                .collection('teachers')
+                                                .doc(qrcode);
+
+                                        // 트랜잭션 내에서 모든 Firestore 작업 수행
+                                        transaction.update(managerRef, {
+                                          dropdownValue: [true, sheetid],
+                                        });
+                                        transaction.set(teacherRef, {
+                                          'teacheruid': qrcode,
+                                          'name': _nameController.text.trim(),
+                                          'birthday':
+                                              _calenderController.text.trim(),
+                                          'phonenumber': _phonenumberController
+                                              .text
+                                              .trim(),
+                                          dropdownValue: sheetid,
+                                        });
+
+                                        transaction.set(teachersRef, {
+                                          'teacheruid': qrcode,
+                                          dropdownValue: sheetid,
+                                        });
                                       });
-                                    Navigator.of(context).pop();
+                                      {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                              content: Text('등록이 완료되었습니다.')),
+                                        );
+                                        Navigator.of(context).pop();
+                                      }
+                                    } catch (e) {
+                                      // 트랜잭션이 실패하면 여기로 점프하게 됨
+                                      print('Transaction failed: $e');
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                              '예기치못한 오류로 등록이 실패했습니다. 다시 시도 해주세요.'),
+                                        ),
+                                      );
+                                    }
                                   }
                                 },
                                 child: const Text('등록')),
@@ -163,6 +200,11 @@ class _RegisterTeacherPageState extends State<RegisterTeacherPage> {
                                 _nameController.clear();
                                 _phonenumberController.clear();
                                 _calenderController.clear();
+                                setState(() {
+                                  isCheckOther = false;
+                                  isCheckMyself = false;
+                                  qrcode = '';
+                                });
                               },
                             ),
                           ),
@@ -265,40 +307,81 @@ class _RegisterTeacherPageState extends State<RegisterTeacherPage> {
                             )
                           : const Text('모든 강의가 할당됐거나 등록된 강의가 없습니다'),
                       const SizedBox(height: 12.0),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          qrcode == ''
-                              ? const Expanded(
-                                  child: Text('강사의 QR 코드를 인증해 주세요'))
-                              : const Expanded(child: Text('인증되었습니다')),
-                          const SizedBox(width: 12.0),
-                          SizedBox(
-                            width: 120.0,
-                            child: ElevatedButton(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (context) => QRScanner(
-                                            getQrcode: get_qrcode,
-                                          )),
-                                );
-                              },
-                              child: const Center(
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.qr_code_2),
-                                    SizedBox(width: 4.0),
-                                    Text('인증'),
-                                  ],
+                      (isCheckMyself)
+                          ? const SizedBox()
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                qrcode == ''
+                                    ? const Expanded(
+                                        child: Text('강사의 QR 코드를 인증해 주세요'))
+                                    : const Expanded(child: Text('강사 인증되었습니다')),
+                                const SizedBox(width: 12.0),
+                                SizedBox(
+                                  width:
+                                      MediaQuery.of(context).size.width / 3.2,
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                            builder: (context) => QRScanner(
+                                                  getQrcode: get_qrcode,
+                                                )),
+                                      );
+                                    },
+                                    child: const Center(
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.qr_code_2),
+                                          SizedBox(width: 4.0),
+                                          Expanded(child: Text('인증')),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
+                              ],
                             ),
-                          ),
-                        ],
-                      ),
+                      (isCheckOther)
+                          ? const SizedBox()
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                qrcode == ''
+                                    ? const Expanded(
+                                        child: Text(
+                                            '본인을 강사로 등록하고 싶다면 이 버튼을 눌려주세요'))
+                                    : const Expanded(child: Text('본인 인증되었습니다')),
+                                const SizedBox(width: 12.0),
+                                SizedBox(
+                                  width:
+                                      MediaQuery.of(context).size.width / 3.2,
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        qrcode = FirebaseAuth
+                                            .instance.currentUser!.uid;
+                                        isCheckMyself = true;
+                                      });
+                                    },
+                                    child: const Center(
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.person),
+                                          SizedBox(width: 4.0),
+                                          Expanded(child: Text('인증')),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                     ],
                   ),
                 ),

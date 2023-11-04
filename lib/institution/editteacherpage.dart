@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:welfare_attendance_project/app_state.dart';
+import 'package:welfare_attendance_project/provider/app_state.dart';
 import 'calender.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -48,6 +48,7 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
   }
 
   String dropdownValue = '';
+  bool isFetchManagerData = false;
 
   void select_canlender(String calendar) {
     setState(() {
@@ -59,9 +60,11 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
   Widget build(BuildContext context) {
     setTextController();
     var appState = context.watch<ApplicationState>();
-    _maplist = appState.maplist!;
-    if (dropdownValue == '')
+    if (!isFetchManagerData) {
+      _maplist = appState.maplist!;
       dropdownValue = _maplist.keys.length == 0 ? '' : _maplist.keys.first;
+      isFetchManagerData = true;
+    }
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
@@ -107,45 +110,74 @@ class _EditTeacherPageState extends State<EditTeacherPage> {
                                       if (key == dropdownValue)
                                         sheetid = value[1];
                                     });
-                                    await FirebaseFirestore.instance
-                                        .collection('manager')
-                                        .doc(FirebaseAuth
-                                            .instance.currentUser!.uid)
-                                        .update(<String, dynamic>{
-                                      widget.classname: [false, widget.sheetid],
-                                    });
-                                    await FirebaseFirestore.instance
-                                        .collection('manager')
-                                        .doc(FirebaseAuth
-                                            .instance.currentUser!.uid)
-                                        .update(<String, dynamic>{
-                                      dropdownValue: [true, sheetid],
-                                    });
+                                    try {
+                                      await FirebaseFirestore.instance
+                                          .runTransaction((transaction) async {
+                                        DocumentReference managerRef =
+                                            FirebaseFirestore.instance
+                                                .collection('manager')
+                                                .doc(FirebaseAuth
+                                                    .instance.currentUser!.uid);
 
-                                    await FirebaseFirestore.instance
-                                        .collection('manager')
-                                        .doc(FirebaseAuth
-                                            .instance.currentUser!.uid)
-                                        .collection('teacher')
-                                        .doc(widget.teacheruid)
-                                        .set(<String, dynamic>{
-                                      'teacheruid': widget.teacheruid,
-                                      'name': _nameController.text.trim(),
-                                      'birthday':
-                                          _calenderController.text.trim(),
-                                      'phonenumber':
-                                          _phonenumberController.text.trim(),
-                                      dropdownValue: sheetid
-                                    });
+                                        DocumentReference teacherRef =
+                                            managerRef
+                                                .collection('teacher')
+                                                .doc(widget.teacheruid);
 
-                                    await FirebaseFirestore.instance
-                                        .collection('teachers')
-                                        .doc(widget.teacheruid)
-                                        .set(<String, dynamic>{
-                                      'teacheruid': widget.teacheruid,
-                                      dropdownValue: sheetid
-                                    });
-                                    Navigator.of(context).pop();
+                                        DocumentReference teachersRef =
+                                            FirebaseFirestore.instance
+                                                .collection('teachers')
+                                                .doc(widget.teacheruid);
+
+                                        // 트랜잭션 내에서 모든 Firestore 작업 수행
+                                        transaction.update(managerRef, {
+                                          widget.classname: [
+                                            false,
+                                            widget.sheetid
+                                          ],
+                                          dropdownValue: [true, sheetid],
+                                        });
+
+                                        transaction.set(teacherRef, {
+                                          'teacheruid': widget.teacheruid,
+                                          'name': _nameController.text.trim(),
+                                          'birthday':
+                                              _calenderController.text.trim(),
+                                          'phonenumber': _phonenumberController
+                                              .text
+                                              .trim(),
+                                          dropdownValue: sheetid,
+                                        });
+
+                                        transaction.set(teachersRef, {
+                                          'teacheruid': widget.teacheruid,
+                                          dropdownValue: sheetid,
+                                        });
+                                      });
+                                      {
+                                        // 트랜잭션이 성공적으로 완료됨
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                              content: Text('수정이 완료되었습니다.')),
+                                        );
+
+                                        // 이후에 필요한 작업 수행 (예: Navigator.pop)
+                                        Navigator.of(context).pop();
+                                      }
+                                    } catch (e) {
+                                      // 트랜잭션이 실패하면 여기로 점프하게 됨
+                                      print('Transaction failed: $e');
+
+                                      // 실패한 경우에 대한 작업 수행 (예: 에러 메시지 출력 등)
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                              '수정중 오류가 발생했습니다. 다시 시도 해주세요.'),
+                                        ),
+                                      );
+                                    }
                                   }
                                 },
                                 child: const Text('수정')),

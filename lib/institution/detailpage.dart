@@ -136,27 +136,52 @@ class _DetailPageState extends State<DetailPage> {
                     ),
                     TextButton(
                       onPressed: () async {
-                        FirebaseFirestore.instance
-                            .collection('manager')
-                            .doc(FirebaseAuth.instance.currentUser!.uid)
-                            .collection('teacher')
-                            .doc(widget.teacheruid)
-                            .delete();
+                        try {
+                          await FirebaseFirestore.instance
+                              .runTransaction((transaction) async {
+                            DocumentReference managerRef = FirebaseFirestore
+                                .instance
+                                .collection('manager')
+                                .doc(FirebaseAuth.instance.currentUser!.uid);
+                            DocumentReference managerTeacherRef = managerRef
+                                .collection('teacher')
+                                .doc(widget.teacheruid);
 
-                        await FirebaseFirestore.instance
-                            .collection('manager')
-                            .doc(FirebaseAuth.instance.currentUser!.uid)
-                            .update(<String, dynamic>{
-                          classname: [false, sheetid],
-                        });
+                            DocumentReference teachersRef = FirebaseFirestore
+                                .instance
+                                .collection('teachers')
+                                .doc(widget.teacheruid);
 
-                        FirebaseFirestore.instance
-                            .collection('teachers')
-                            .doc(widget.teacheruid)
-                            .delete();
+                            // 트랜잭션 내에서 모든 Firestore 작업 수행
+                            transaction.delete(managerTeacherRef);
 
-                        Navigator.pop(context, '확인');
-                        Navigator.pop(context);
+                            transaction.update(managerRef, {
+                              classname: [false, sheetid],
+                            });
+
+                            transaction.delete(teachersRef);
+                          });
+                          {
+                            // 트랜잭션이 성공적으로 완료됨
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('삭제가 완료되었습니다.')),
+                            );
+
+                            // 이후에 필요한 작업 수행 (예: Navigator.pop)
+                            Navigator.pop(context, '확인');
+                            Navigator.pop(context);
+                          }
+                        } catch (e) {
+                          // 트랜잭션이 실패하면 여기로 점프하게 됨
+                          print('Transaction failed: $e');
+
+                          // 실패한 경우에 대한 작업 수행 (예: 에러 메시지 출력 등)
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('삭제 중 오류가 발생했습니다. 다시 시도 해주세요.'),
+                            ),
+                          );
+                        }
                       },
                       child: const Text('확인'),
                     ),

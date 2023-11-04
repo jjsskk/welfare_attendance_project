@@ -1,14 +1,16 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import 'package:welfare_attendance_project/profilepage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:welfare_attendance_project/teacher/classdate.dart';
-import '../app_state.dart';
+import '../provider/app_state.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lottie/lottie.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 class HomePage extends StatefulWidget {
   HomePage({Key? key}) : super(key: key);
@@ -28,8 +30,34 @@ class _HomePageState extends State<HomePage> {
     super.initState();
   }
 
+  @override
+  void dispose() {
+    // TODO: implement dispose
+    super.dispose();
+    appState.attendancedata = null;
+  }
+
+  late var appState;
   late var sheetid;
   late var classname;
+  DateTime? currentBackPressTime;
+
+  Future<bool> onWillPop() {
+    DateTime now = DateTime.now();
+
+    if (currentBackPressTime == null ||
+        now.difference(currentBackPressTime!) > Duration(seconds: 2)) {
+      currentBackPressTime = now;
+      final msg = "'뒤로가기'버튼을 한 번 더 누르면 종료됩니다.";
+
+      Fluttertoast.showToast(
+          msg: msg, backgroundColor: Colors.black, textColor: Colors.white);
+      return Future.value(false);
+    }
+
+    SystemNavigator.pop();
+    return Future.value(false);
+  }
 
   final Stream<DocumentSnapshot<Map<String, dynamic>>> _classstream =
       FirebaseFirestore.instance
@@ -39,10 +67,9 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    appState = context.watch<ApplicationState>();
     return WillPopScope(
-      onWillPop: () {
-        return Future(() => false);
-      },
+      onWillPop: onWillPop,
       child: Scaffold(
         appBar: AppBar(
           centerTitle: true,
@@ -264,64 +291,64 @@ class _HomePageState extends State<HomePage> {
     return targets;
   }
 
-  // List<Widget> cardtolist(ThemeData theme) {
-  //   late Card card;
-  //   List<Widget> list = [];
-  //   List<bool> _selectedIcon = [];
-  //   for (var data in sheet.data) {
-  //     if (data[0] != '이름') {
-  //       if (data[2] == 'o')
-  //         _selectedIcon = [true, false];
-  //       else
-  //         _selectedIcon = [false, true];
-  //       list.add(Card(
-  //         child: Padding(
-  //             padding: const EdgeInsets.all(16.0),
-  //             child: Row(
-  //               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //               children: [
-  //                 Column(
-  //                   mainAxisAlignment: MainAxisAlignment.center,
-  //                   crossAxisAlignment: CrossAxisAlignment.start,
-  //                   children: [
-  //                     Text(
-  //                       '${data[0]}',
-  //                       style: const TextStyle(
-  //                         fontWeight: FontWeight.bold,
-  //                       ),
-  //                     ),
-  //                     const SizedBox(height: 4.0),
-  //                     Text('${data[1]}'),
-  //                   ],
-  //                 ),
-  //                 // SizedBox(width: 20,),
-  //                 ToggleButtons(
-  //                   direction: Axis.horizontal,
-  //                   onPressed: (int index) {
-  //                     setState(() {
-  //                       // The button that is tapped is set to true, and the others to false.
-  //                       for (int i = 0; i < _selectedIcon.length; i++) {
-  //                         // if(data[2] == 'o')
-  //                         //  index = index!;
-  //                         _selectedIcon[i] = i == index;
-  //                       }
-  //                       _grid_or_list = index;
-  //                     });
-  //                   },
-  //                   borderRadius: const BorderRadius.all(Radius.circular(8)),
-  //                   selectedBorderColor: theme.colorScheme.primary,
-  //                   selectedColor: theme.colorScheme.primary,
-  //                   fillColor: Colors.blue[200],
-  //                   color: Colors.grey,
-  //                   isSelected: _selectedIcon,
-  //                   children: icons,
-  //                 ),
-  //                 // Text('${data[2]}')
-  //               ],
-  //             )),
-  //       ));
-  //     }
-  //   }
-  //   return list;
-  // }
+// List<Widget> cardtolist(ThemeData theme) {
+//   late Card card;
+//   List<Widget> list = [];
+//   List<bool> _selectedIcon = [];
+//   for (var data in sheet.data) {
+//     if (data[0] != '이름') {
+//       if (data[2] == 'o')
+//         _selectedIcon = [true, false];
+//       else
+//         _selectedIcon = [false, true];
+//       list.add(Card(
+//         child: Padding(
+//             padding: const EdgeInsets.all(16.0),
+//             child: Row(
+//               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//               children: [
+//                 Column(
+//                   mainAxisAlignment: MainAxisAlignment.center,
+//                   crossAxisAlignment: CrossAxisAlignment.start,
+//                   children: [
+//                     Text(
+//                       '${data[0]}',
+//                       style: const TextStyle(
+//                         fontWeight: FontWeight.bold,
+//                       ),
+//                     ),
+//                     const SizedBox(height: 4.0),
+//                     Text('${data[1]}'),
+//                   ],
+//                 ),
+//                 // SizedBox(width: 20,),
+//                 ToggleButtons(
+//                   direction: Axis.horizontal,
+//                   onPressed: (int index) {
+//                     setState(() {
+//                       // The button that is tapped is set to true, and the others to false.
+//                       for (int i = 0; i < _selectedIcon.length; i++) {
+//                         // if(data[2] == 'o')
+//                         //  index = index!;
+//                         _selectedIcon[i] = i == index;
+//                       }
+//                       _grid_or_list = index;
+//                     });
+//                   },
+//                   borderRadius: const BorderRadius.all(Radius.circular(8)),
+//                   selectedBorderColor: theme.colorScheme.primary,
+//                   selectedColor: theme.colorScheme.primary,
+//                   fillColor: Colors.blue[200],
+//                   color: Colors.grey,
+//                   isSelected: _selectedIcon,
+//                   children: icons,
+//                 ),
+//                 // Text('${data[2]}')
+//               ],
+//             )),
+//       ));
+//     }
+//   }
+//   return list;
+// }
 }

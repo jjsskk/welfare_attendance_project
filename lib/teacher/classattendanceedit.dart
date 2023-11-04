@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:welfare_attendance_project/app_state.dart';
+import 'package:welfare_attendance_project/provider/app_state.dart';
 import 'package:provider/provider.dart';
 import 'package:welfare_attendance_project/googlecloud_config/configuration.dart';
 import 'package:gsheets/gsheets.dart';
@@ -22,7 +22,10 @@ class ClassAttendacnceEdit extends StatefulWidget {
 
 class _ClassAttendacnceEditState extends State<ClassAttendacnceEdit> {
   late var appState;
+  late List<List<dynamic>> _attendanceData;
+  bool isFetchAttendace = false;
 
+  bool loading = true;
   Spreadsheet? spreadsheet = null;
   Worksheet? workSheet = null;
 
@@ -36,36 +39,59 @@ class _ClassAttendacnceEditState extends State<ClassAttendacnceEdit> {
     // _loadCSVaws();
   }
 
-  Future<void> initalWorkSheet() async {
-    final gsheets = SheetConfiguration.sheet;
-    spreadsheet ??= await gsheets.spreadsheet(widget.spreadsheetId);
-    // final service = GSheetService('path/to/credentials.json');
-    if (workSheet == null) {
-      print('spreadsheet :$spreadsheet');
-      workSheet = await spreadsheet!.worksheetByIndex(0)!;
-      workSheet ??= await spreadsheet!.addWorksheet(_workSheetTitle);
+  void fetchAttendaceData() {
+    // _attendanceData = List.from(appState.attendancedata); //shallow copy -> current list update apply to provider list
+    _attendanceData = [];
+    //deep copy
+    for (var data in appState.attendancedata) {
+      _attendanceData.add(List.from(data)); // copy row list
     }
   }
 
-  void insertRows({
+  Future<void> initalWorkSheet() async {
+    final gsheets = SheetConfiguration.sheet;
+    spreadsheet ??= await gsheets.spreadsheet(widget.spreadsheetId);
+    {
+      // final service = GSheetService('path/to/credentials.json');
+      if (workSheet == null) {
+        print('spreadsheet :$spreadsheet');
+        workSheet = await spreadsheet!.worksheetByIndex(0)!;
+        workSheet ??= await spreadsheet!.addWorksheet(_workSheetTitle);
+        setState(() {
+          loading = false;
+        });
+      }
+      setState(() {
+        loading = false;
+      });
+    }
+  }
+
+  Future<bool> insertRows({
     required List<List<dynamic>>? data,
   }) async {
     if (workSheet == null) {
       print('Worksheet is null.');
-      return;
+      return Future.value(false);
     }
 
     final result = await workSheet!.values.insertRows(
       1,
       data!,
     );
-    print('$_workSheetTitle insertRow completed $result');
+
+    return result;
   }
 
   @override
   Widget build(BuildContext context) {
     appState = context.watch<ApplicationState>();
     final ThemeData theme = Theme.of(context);
+    if (!isFetchAttendace) {
+      fetchAttendaceData();
+      print('fetch');
+      isFetchAttendace = true;
+    }
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
@@ -79,45 +105,66 @@ class _ClassAttendacnceEditState extends State<ClassAttendacnceEdit> {
               Icons.save,
               semanticLabel: 'save',
             ),
-            onPressed: () {
-              insertRows(data: appState.attendancedata);
-              Navigator.of(context).pop();
-              Navigator.of(context).pop();
+            onPressed: () async {
+              var result = await insertRows(data: _attendanceData);
+              {
+                print('$_workSheetTitle insertRow completed $result');
+
+                if (result) {
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(content: Text('엑셀 파일에 저장되었습니다.')));
+                  appState.downCsvCheck = false;
+
+                  Navigator.of(context).pop();
+                  Navigator.of(context).pop();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('예기치 못한 오류로 저장되지 못했습니다. 다시 시도 해주세요.')));
+                }
+              }
             },
           ),
         ],
       ),
-      body: Column(
-        children: [
-          const SizedBox(height: 12.0),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                widget.classname,
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
-              const SizedBox(width: 12.0),
-              Text(
-                widget.date,
-                style: Theme.of(context).textTheme.bodyLarge,
-              )
-            ],
-          ),
-          Expanded(
-            child: ListView(
-                padding: const EdgeInsets.all(16.0),
-                children: _cardtolist(theme)),
-          ),
-        ],
-      ),
+      body: loading
+          ? Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                const SizedBox(height: 12.0),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      widget.classname,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                    const SizedBox(width: 12.0),
+                    Text(
+                      widget.date,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    )
+                  ],
+                ),
+                Expanded(
+                  child: ListView(
+                      padding: const EdgeInsets.all(16.0),
+                      children: _cardtolist(theme)),
+                ),
+              ],
+            ),
     );
   }
 
   List<Widget> _cardtolist(ThemeData theme) {
     List<Widget> list = [];
     int outindex = 2;
-    for (var data in appState.attendancedata) {
+    if (!(_attendanceData.first[0].trim() == '이름' &&
+        _attendanceData.first[1].trim() == '전화번호')) {
+      list.add(Text('이메일로 보낸 sample 엑셀 파일 양식과 맞춰서 출석엑셀파일을 작성해주세요.'));
+      return list;
+    }
+
+    for (var data in _attendanceData) {
       if (data[0] == '이름') {
         int index = 0;
         for (var exceldate in data) {
@@ -127,8 +174,7 @@ class _ClassAttendacnceEditState extends State<ClassAttendacnceEdit> {
           index++;
         }
       } else {
-        if (data[outindex] != 'o')
-          data[outindex] = 'x';
+        if (data[outindex] != 'o') data[outindex] = 'x';
         list.add(Card(
           child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -146,7 +192,7 @@ class _ClassAttendacnceEditState extends State<ClassAttendacnceEdit> {
                         ),
                       ),
                       const SizedBox(height: 4.0),
-                      Text('${data[1]}'),
+                      Text('${data[1]}'),// call num
                     ],
                   ),
                   // SizedBox(width: 20,),

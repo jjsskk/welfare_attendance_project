@@ -17,7 +17,7 @@ class ApplicationState extends ChangeNotifier {
 
   List<String> _classlist = [];
   Map<String, dynamic>? _maplist =
-      Map(); // contain bool to check if other teacher take class and excelid
+      {}; // contain bool to check if other teacher take corresponding class and excelid
 
   Map<String, dynamic>? get maplist => _maplist;
 
@@ -28,8 +28,6 @@ class ApplicationState extends ChangeNotifier {
   set whatuser(value) {
     _whatuser = value;
   }
-
-
 
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>
       classlist_listener() {
@@ -42,15 +40,16 @@ class ApplicationState extends ChangeNotifier {
       _classlist = snapshot.data()!.keys.toList();
       _classlist.remove('복지사');
       _maplist = snapshot.data();
-      _maplist!.remove('복지사'); //remove 복지사 field
+      _maplist!.remove('복지사'); //remove 복지사 field on upper row
       List<String> keylist = [];
-      if (_maplist != null)
+      if (_maplist != null) {
         _maplist?.forEach((key, value) {
           if (value.first == true) //other teacher already took this class
             keylist.add(key);
           // _maplist?.remove(key);
         });
-      for (var key in keylist) _maplist?.remove(key);
+        for (var key in keylist) _maplist?.remove(key);
+      }
 
       notifyListeners();
     });
@@ -60,12 +59,31 @@ class ApplicationState extends ChangeNotifier {
 
   var _attendancedata = null;
 
+  set attendancedata(value) {
+    _attendancedata = value;
+    notifyListeners();
+  }
+
+  var _downCsvCheck = false;
+
+  get downCsvCheck => _downCsvCheck;
+
+  set downCsvCheck(value) {
+    _downCsvCheck = value;
+    notifyListeners();
+  }
+
   get attendancedata => _attendancedata;
   List<String> _datelist = [];
 
   List<String> get datelist => _datelist;
 
-  void downloadcsv(String _spreadsheetId) async {
+  Future<StreamSubscription<List<int>>?> downloadcsv(String _spreadsheetId,
+      StreamSubscription<List<int>>? previousListener) async {
+    if (previousListener != null) {
+      previousListener?.cancel();
+    }
+
     final httpClient = http.Client();
     // Load the client secrets JSON file obtained from GCP
     final credentials = await auth.clientViaServiceAccount(
@@ -76,18 +94,18 @@ class ApplicationState extends ChangeNotifier {
     final driveApi = drive.DriveApi(credentials);
     // Export the Sheets file as CSV
     final exportMimeType = 'text/csv';
-    final response = await driveApi.files.export(
-        _spreadsheetId, exportMimeType,
+    final response = await driveApi.files.export(_spreadsheetId, exportMimeType,
         downloadOptions: drive.DownloadOptions.fullMedia);
     // stream(response);
     List<int> dataStore = [];
 
-    var listener = response!.stream.listen((data) {
-      print(dataStore);
+    StreamSubscription<List<int>> listener = response!.stream.listen((data) {
+      dataStore = [];
+      print('datastore : $dataStore');
       dataStore.insertAll(dataStore.length, data);
     }, onDone: () async {
       Directory tempDir =
-      await getTemporaryDirectory(); //Get temp folder using Path Provider
+          await getTemporaryDirectory(); //Get temp folder using Path Provider
       String tempPath = tempDir.path; //Get path to that location
       File file = File('$tempPath/test'); //Create a dummy file
       await file.writeAsBytes(
@@ -99,46 +117,49 @@ class ApplicationState extends ChangeNotifier {
       _datelist = [];
 
       if (_attendancedata != null && _attendancedata.isNotEmpty) {
+        int index = 0;
         for (var date in _attendancedata[0]) {
-          if (date != '이름' && date != '전화번호') {
+          if (index > 1) {
             _datelist.add(date);
           }
+          index++;
         }
       }
       notifyListeners();
     }, onError: (error) {
       print("Some Error");
     });
+    return listener;
   }
 
-  // void stream(var response) {
-  //   List<int> dataStore = [];
-  //   var listener = response.stream.listen((data) {
-  //     print(dataStore);
-  //     dataStore.insertAll(dataStore.length, data);
-  //   }, onDone: () async {
-  //     Directory tempDir =
-  //         await getTemporaryDirectory(); //Get temp folder using Path Provider
-  //     String tempPath = tempDir.path; //Get path to that location
-  //     File file = File('$tempPath/test'); //Create a dummy file
-  //     await file.writeAsBytes(
-  //         dataStore); //Write to that file from the datastore you created from the Media stream
-  //     String content = file.readAsStringSync(); // Read String from the file
-  //     _attendancedata = const CsvToListConverter().convert(content);
-  //     print(_attendancedata); //Finally you have your text
-  //     print("Task Done");
-  //     _datelist = [];
-  //
-  //     if (_attendancedata != null && _attendancedata.lenghth > 0 ) {
-  //       for (var date in _attendancedata[0]) {
-  //         if (date != '이름' && date != '전화번호') {
-  //           _datelist.add(date);
-  //         }
-  //       }
-  //     }
-  //     notifyListeners();
-  //   }, onError: (error) {
-  //     print("Some Error");
-  //   });
-  // }
+// void stream(var response) {
+//   List<int> dataStore = [];
+//   var listener = response.stream.listen((data) {
+//     print(dataStore);
+//     dataStore.insertAll(dataStore.length, data);
+//   }, onDone: () async {
+//     Directory tempDir =
+//         await getTemporaryDirectory(); //Get temp folder using Path Provider
+//     String tempPath = tempDir.path; //Get path to that location
+//     File file = File('$tempPath/test'); //Create a dummy file
+//     await file.writeAsBytes(
+//         dataStore); //Write to that file from the datastore you created from the Media stream
+//     String content = file.readAsStringSync(); // Read String from the file
+//     _attendancedata = const CsvToListConverter().convert(content);
+//     print(_attendancedata); //Finally you have your text
+//     print("Task Done");
+//     _datelist = [];
+//
+//     if (_attendancedata != null && _attendancedata.lenghth > 0 ) {
+//       for (var date in _attendancedata[0]) {
+//         if (date != '이름' && date != '전화번호') {
+//           _datelist.add(date);
+//         }
+//       }
+//     }
+//     notifyListeners();
+//   }, onError: (error) {
+//     print("Some Error");
+//   });
+// }
 }
